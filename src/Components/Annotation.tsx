@@ -1,13 +1,12 @@
 interface Point {
-  x: number;
-  y: number;
-}
-
+    x: number;
+    y: number;
+    type:number;//1 is positive, 0 is negative
+  }
 
 class Annotation {
-  private positivePoints: Point[];
-  private negativePoints: Point[];
-  private mask: number[][];
+  private points: Point[];
+  private mask: number[][]|null;
   private annotationType: string;
   private overallIndex: number;
   private typeIndex: number;
@@ -15,9 +14,8 @@ class Annotation {
   private timestamp: Date;
 
   constructor(annotationType: string, overallIndex: number, typeIndex: number) {
-    this.positivePoints = [];    
-    this.negativePoints = []; 
-    this.mask = [];
+    this.points = [];
+    this.mask = null;
     this.annotationType = annotationType;
     this.overallIndex = overallIndex;
     this.typeIndex = typeIndex;
@@ -25,21 +23,16 @@ class Annotation {
     this.timestamp = new Date();
   }
 
-  addPositivePoint(x: number, y: number): void {
-    this.positivePoints.push({x, y});
+  addPoint(point: Point): void {
+    this.points.push(point);
   }
 
-  addNegativePoint(x: number, y: number): void {
-    this.negativePoints.push({x, y});
-  }
-
-  clearPoints(): void {
-    this.positivePoints = [];
-    this.negativePoints = [];
+  setPoints(points: Point[]): void {   
+    this.points = points;
   }
 
   isValid(): boolean {
-    return this.positivePoints.length > 0;
+    return this.points.filter(point => point.type === 1).length > 0;
   }
 
   setMask(mask: number[][]): void {
@@ -47,15 +40,15 @@ class Annotation {
   }
 
   getPositivePoints(): Point[] {
-    return [...this.positivePoints];
+    return this.points.filter(point => point.type === 1);
   }
 
   getNegativePoints(): Point[] {
-    return [...this.negativePoints];
+    return this.points.filter(point => point.type === 0);
   }
 
-  getMask(): number[][] {
-    return [...this.mask];
+  getMask(): number[][] | null {
+    return this.mask;
   }
 
   getAnnotationType(): string {

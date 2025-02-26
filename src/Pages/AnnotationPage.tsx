@@ -40,34 +40,34 @@ const AnnotationPage = (props) => {
     init();
   },[]);
 
-  useEffect(() => {
-    async function loadImageFromURL(url) {
-      return new Promise((resolve, reject) => {
-          const img = new Image();
-          img.crossOrigin = 'anonymous'; // Enable CORS for external images
-          img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error(`Failed to load image from ${url}`));
-          img.src = url;
-      });
-  }
-    const processFrame = async () => {
-      if (currentFrame) {
-        const startTime = performance.now();
-        const url = video.getRawFrame(currentFrame);
-        const img = await loadImageFromURL(url);
-        console.log("Image loaded. Using this encoder to get embedding", encoder);
-        const new_embedding = await encoder.encode(img);
-        const endTime = performance.now();
-        console.log(`Frame processing took ${endTime - startTime}ms`);
-        setEmbedding(new_embedding);
-        setIsProcessing(false);
-        //const mask = predictor.predict(embedding, ongoingAnnotation.getPoints(), image.height, image.width);
-      }
-    };
-    //setIsProcessing(true);
-    //processFrame();
+  // useEffect(() => {
+  //   async function loadImageFromURL(url) {
+  //     return new Promise((resolve, reject) => {
+  //         const img = new Image();
+  //         img.crossOrigin = 'anonymous'; // Enable CORS for external images
+  //         img.onload = () => resolve(img);
+  //         img.onerror = () => reject(new Error(`Failed to load image from ${url}`));
+  //         img.src = url;
+  //     });
+  // }
+  //   const processFrame = async () => {
+  //     if (currentFrame) {
+  //       const startTime = performance.now();
+  //       const url = video.getRawFrame(currentFrame);
+  //       const img = await loadImageFromURL(url);
+  //       console.log("Image loaded. Using this encoder to get embedding", encoder);
+  //       const new_embedding = await encoder.encode(img);
+  //       const endTime = performance.now();
+  //       console.log(`Frame processing took ${endTime - startTime}ms`);
+  //       setEmbedding(new_embedding);
+  //       setIsProcessing(false);
+  //       //const mask = predictor.predict(embedding, ongoingAnnotation.getPoints(), image.height, image.width);
+  //     }
+  //   };
+  //   setIsProcessing(true);
+  //   processFrame();
 
-  }, [currentFrame]);
+  // }, [currentFrame]);
 
   return (
     <>
@@ -80,7 +80,9 @@ const AnnotationPage = (props) => {
           <div style={{ display: 'flex', flex: 1 }}>
             <AnnotationResultsPanel video={video}/>
             <div style={{ flex: 1 }}>
-              <AnnotationPanel video={video} currentFrame={currentFrame} isProcessing={isProcessing} />
+              <AnnotationPanel video={video} currentFrame={currentFrame} isProcessing={isProcessing} setIsProcessing={setIsProcessing}
+              ongoingAnnotation={ongoingAnnotation} setOngoingAnnotation={setOngoingAnnotation} 
+              encoder={encoder} predictor={predictor} />
             </div>
             <AnnotationToolsPanel video={video} isPositive={isPositive} setIsPositive={setIsPositive} 
             ongoingAnnotation={ongoingAnnotation} setOngoingAnnotation={setOngoingAnnotation}/>

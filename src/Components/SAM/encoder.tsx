@@ -1,7 +1,6 @@
 import * as ort from 'onnxruntime-web';
-const ENCODER_MODEL_URL = 'https://storage.googleapis.com/lb-artifacts-testing-public/sam2/sam2_hiera_tiny.encoder.ort';
-const ENCODER_MODEL_URL_SMALL = '../models/sam2_hiera_small.encoder.with_runtime_opt.ort';
-const ENCODER_MODEL_URL_LARGE = '../models/sam2_hiera_large.encoder.with_runtime_opt.ort';
+const ENCODER_MODEL_URL = '/encoder.ort';
+const ENCODER_MODEL_URL_online = 'https://storage.googleapis.com/lb-artifacts-testing-public/sam2/sam2_hiera_tiny.encoder.ort';
 class SAM2Encoder {
     private session: ort.InferenceSession | null;
     private lastEmbeddings: Float32Array | null;

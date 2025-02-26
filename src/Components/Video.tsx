@@ -19,6 +19,7 @@ class Video {
   private annotations: Annotation[];
   private currentFrameIndex: number;
   private segmentations: Segmentation[];
+  private encodings: { [frameIndex: number]: Float32Array } = {};
 
   constructor(videoData: VideoData) {
     this.videoData = videoData;
@@ -64,13 +65,20 @@ class Video {
     return this.frames.map(frame => 'http://localhost/video_images_raw/' + this.videoData.name + '/' + frame);
   }
 
-
-
   // Frame navigation
   setCurrentFrame(index: number): void {
     if (index >= 0 && index < this.videoData.image_count) {
       this.currentFrameIndex = index;
     }
+  }
+
+  setEncoding(index: number, encoding: Float32Array): void {
+    this.encodings[index] = encoding;
+  }
+
+  getEncoding(index: number): Float32Array | null {
+    if (!this.encodings[index]) return null;
+    return this.encodings[index];
   }
 
   // Annotation methods
@@ -84,6 +92,10 @@ class Video {
 
   getAllAnnotations(): Annotation[] {
     return [...this.annotations];
+  }
+
+  getAnnotationsForFrame(frameIndex: number): Annotation[] {
+    return this.annotations.filter(a => a.frameIndex === frameIndex);
   }
 
   // Server interaction methods

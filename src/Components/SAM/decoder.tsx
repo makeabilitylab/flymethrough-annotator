@@ -1,10 +1,11 @@
 import * as ort from 'onnxruntime-web';
-const DECODER_MODEL_URL = 'https://storage.googleapis.com/lb-artifacts-testing-public/sam2/sam2_hiera_tiny.decoder.onnx';
-const DECODER_MODEL_URL_SMALL = '../models/sam2_hiera_small.decoder.with_runtime_opt.ort';
-const DECODER_MODEL_URL_LARGE = '../models/sam2_hiera_large.decoder.with_runtime_opt.ort';
+const DECODER_MODEL_URL = '/decoder.onnx';
+const DECODER_MODEL_URL_online = 'https://storage.googleapis.com/lb-artifacts-testing-public/sam2/sam2_hiera_tiny.decoder.onnx';
 const SAM_ONNX_MASK_SIZE = 256;
 
 class SAM2Predictor {
+    private session: ort.InferenceSession | null;
+
     constructor() {
         this.session = null;
     }
