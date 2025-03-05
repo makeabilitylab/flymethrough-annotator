@@ -4,23 +4,37 @@ interface Point {
     type:number;//1 is positive, 0 is negative
   }
 
+  interface BBox {
+    frameIndex: number;
+    bbox: number[];
+  }
+
 class Annotation {
   private points: Point[];
   private mask: number[][]|null;
+  private bboxes: BBox[];
   private annotationType: string;
   private overallIndex: number;
   private typeIndex: number;
   private annotationID: string | null;
   private timestamp: Date;
-
-  constructor(annotationType: string, overallIndex: number, typeIndex: number) {
+  private processed: boolean;
+  private initialFrame: number;
+  constructor(initialFrame: number, annotationType: string, overallIndex: number, typeIndex: number) {
     this.points = [];
     this.mask = null;
+    this.bboxes = [];
     this.annotationType = annotationType;
     this.overallIndex = overallIndex;
     this.typeIndex = typeIndex;
     this.annotationID = annotationType + "_" + typeIndex;
     this.timestamp = new Date();
+    this.processed = false;
+    this.initialFrame = initialFrame;
+  }
+
+  getInitialFrame(): number {
+    return this.initialFrame;
   }
 
   addPoint(point: Point): void {
@@ -59,6 +73,28 @@ class Annotation {
     return this.timestamp;
   }
 
+  getId(): string | null {
+    return this.annotationID;
+  }
+  getType(): string {
+    return this.annotationType;
+  }
+
+  addBBox(frameIndex: number, bbox: number[]): void {
+    this.bboxes.push({frameIndex, bbox});
+  }
+
+  getBBoxes(): BBox[] {
+    return this.bboxes;
+  }
+
+  setProcessed(processed: boolean): void {
+    this.processed = processed;
+  }
+
+  isProcessed(): boolean {
+    return this.processed;
+  }
 }
 
 export default Annotation;

@@ -98,30 +98,10 @@ class Video {
     return this.annotations.filter(a => a.frameIndex === frameIndex);
   }
 
-  // Server interaction methods
-  async saveAnnotationsToServer(): Promise<void> {
-    try {
-      await fetch(`http://localhost/videos/${this.videoData.id}/annotations`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(this.annotations),
-      });
-    } catch (error) {
-      console.error('Error saving annotations:', error);
-      throw error;
-    }
-  }
-
-  async loadSegmentationsFromServer(): Promise<void> {
-    try {
-      const response = await fetch(`http://localhost/videos/${this.videoData.id}/annotations`);
-      const data = await response.json();
-      this.annotations = data;
-    } catch (error) {
-      console.error('Error loading annotations:', error);
-      throw error;
+  addBBoxToAnnotation(frameIndex: number, objectId: string, bbox: number[]): void {
+    const annotation = this.annotations.find(a => a.getId() === objectId);
+    if (annotation) {
+      annotation.addBBox(frameIndex, bbox);
     }
   }
 }

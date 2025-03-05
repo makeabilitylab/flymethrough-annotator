@@ -43,7 +43,7 @@ const AnnotationToolsPanel = (props) => {
         }
     }
     console.log("Creating new annotation");
-    const newAnnotation = new Annotation(type.name, totalAnnotations, typeCounts[type.id]);
+    const newAnnotation = new Annotation(props.currentFrame, type.name, totalAnnotations, typeCounts[type.id]);
     setTotalAnnotations(totalAnnotations + 1);
     setTypeCounts({...typeCounts, [type.id]: typeCounts[type.id] + 1});
     props.setOngoingAnnotation(newAnnotation);
@@ -57,6 +57,10 @@ const AnnotationToolsPanel = (props) => {
     props.setOngoingAnnotation(null);
   }
 
+  const confirmAnnotation = () => {
+    props.confirmAnnotation();
+  }
+
   return (
     <div className="w-64 bg-base-200 p-2 flex flex-col gap-2 h-full">
       {/* Object Types Panel */}
@@ -64,7 +68,18 @@ const AnnotationToolsPanel = (props) => {
         <h3 className="text-lg font-bold mb-2">Object Types</h3>
         
         {/* Scrollable Types List */}
-        <div className="flex-1 overflow-y-auto mb-2 max-h-[40vh]">
+        <div 
+          className="h-48 mb-2 overflow-y-scroll" 
+          style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: '#666 #333'
+          }}
+          ref={(el) => {
+            if (el) {
+              el.scrollTop = el.scrollHeight;
+            }
+          }}
+        >
           {objectTypes.map((type) => (
             <div key={type.id} className="flex items-center gap-1 text-sm mb-1">
               <span className="flex-1">{type.name}</span>
@@ -93,31 +108,36 @@ const AnnotationToolsPanel = (props) => {
       </div>
 
       {/* Action Buttons Panel */}
-      {props.ongoingAnnotation ? (
-        <div className="bg-base-300 p-3 rounded-lg">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-base text-black font-bold">
-              {props.ongoingAnnotation.annotationID}
-            </span>
-            <div className="flex gap-2 items-center">
-              <span className="text-green-600 font-bold">
-                +{props.ongoingAnnotation.getPositivePoints().length}
+      <div className="bg-base-300 p-3 rounded-lg h-[140px]">
+        {props.ongoingAnnotation ? (
+          <>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-base text-black font-bold">
+                {props.ongoingAnnotation.annotationID}
               </span>
-              <span className="text-red-600 font-bold">
-                -{props.ongoingAnnotation.getNegativePoints().length}
-              </span>
+              <div className="flex gap-2 items-center">
+                <span className="text-green-600 font-bold">
+                  +{props.ongoingAnnotation.getPositivePoints().length}
+                </span>
+                <span className="text-red-600 font-bold">
+                  -{props.ongoingAnnotation.getNegativePoints().length}
+                </span>
+              </div>
             </div>
+            <div className="flex gap-2 flex-col">
+              <div className="flex gap-2">
+                <button className="btn btn-sm btn-info flex-1 hover:bg-sky-600" onClick={clearPoints}>Clear Points</button>
+                <button className="btn btn-sm btn-warning flex-1 hover:bg-amber-600" onClick={removeAnnotation}>Remove Annotation</button>
+              </div>
+              <button className="btn btn-sm btn-success hover:bg-green-600" onClick={confirmAnnotation}>Confirm Annotation</button>
+            </div>
+          </>
+        ) : (
+          <div className="h-full flex items-center justify-center text-gray-500 text-sm">
+            Select an object type to start annotating
           </div>
-          <div className="flex gap-2">
-            <button className="btn btn-sm btn-info flex-1 hover:bg-sky-600" onClick={clearPoints}>Clear Points</button>
-            <button className="btn btn-sm btn-warning flex-1 hover:bg-amber-600" onClick={removeAnnotation}>Remove Annotation</button>
-          </div>
-        </div>
-      ) : (
-        <div className="bg-base-300 p-3 rounded-lg text-center text-gray-500 text-sm">
-          Select an object type to start annotating
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

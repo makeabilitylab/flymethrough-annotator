@@ -51,7 +51,10 @@ class SAM2Predictor {
         const scaleFactor = this.getPointScaleFactor(imageHeight, imageWidth);
 
         for (let point of points) {
-            pointCoordsData.push([point.x * scaleFactor.x, point.y * scaleFactor.y]);
+            pointCoordsData.push([point.x / scaleFactor.x*1024, point.y / scaleFactor.y*1024]);
+            console.log("Image width: ", imageWidth);
+            console.log("Image height: ", imageHeight);
+            console.log("Point coords: ", point.x / scaleFactor.x*1024, point.y / scaleFactor.y*1024);
             pointLabelsData.push(point.type);
         }
 
