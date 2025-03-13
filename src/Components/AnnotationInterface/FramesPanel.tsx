@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 
-const FramesPanel = ({ video, currentFrame, setCurrentFrame }) => {
+const FramesPanel = ({ video, currentFrame, setCurrentFrame, setViewingAnnotation }) => {
   const [frames, setFrames] = useState([]);
 
   useEffect(() => {
@@ -11,14 +11,23 @@ const FramesPanel = ({ video, currentFrame, setCurrentFrame }) => {
 
   return (
     <div className="w-full h-32 bg-base-300 overflow-x-auto">
-      <div className="flex flex-row p-2 gap-2">
+      <div className="flex flex-row p-2 gap-2" id="frames-container">
         {frames.map((frame, index) => (
           <div 
             key={index}
             className={`flex-none w-24 h-24 rounded-lg overflow-hidden hover:ring-2 hover:ring-primary cursor-pointer relative ${
               currentFrame === index ? 'ring-2 ring-accent' : ''
             }`}
-            onClick={() => setCurrentFrame(index)}
+            onClick={() => {
+              setCurrentFrame(index);
+              setViewingAnnotation(null);
+            }}
+            ref={el => {
+              // Scroll into view when this is the current frame
+              if (currentFrame === index && el) {
+                el.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+              }
+            }}
           >
             <div className="absolute top-0 left-0 right-0 bg-black bg-opacity-50 text-white text-xs p-1 truncate">
               {frame.split('/').pop()}

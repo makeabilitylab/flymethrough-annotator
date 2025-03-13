@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useImperativeHandle } from 'react';
 import {Layer, Stage} from 'react-konva';
 import SAM2Encoder from '../SAM/encoder.tsx';
 import SAM2Predictor from '../SAM/decoder.tsx';
@@ -6,15 +6,22 @@ import SAM2Predictor from '../SAM/decoder.tsx';
 import Point from '../Annotation.tsx';
 
 
-const AnnotationPanel = ({ video, currentFrame, isProcessing,setIsProcessing,
-    ongoingAnnotation,setOngoingAnnotation, encoder, predictor}) => {
+const AnnotationPanel = React.forwardRef(({ video, currentFrame, isProcessing, setIsProcessing,
+    ongoingAnnotation, setOngoingAnnotation, viewingAnnotation, setViewingAnnotation, encoder, predictor}, ref) => {
   const imageCanvasRef = useRef(null);
   const maskCanvasRef = useRef(null);
   const pointsCanvasRef = useRef(null);
+  const bboxCanvasRef = useRef(null);
 
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [currentImage, setCurrentImage] = useState<HTMLImageElement | null>(null);
+  const [currentImageWidth, setCurrentImageWidth] = useState<number>(0);
+  const [currentImageHeight, setCurrentImageHeight] = useState<number>(0);
   const [currentMask, setCurrentMask] = useState<number[][] | null>(null);
+
+  useImperativeHandle(ref, () => ({
+    clearPoints: clearPoints
+  }));
 
   const drawCurrentFrame = () => {
     const canvas = imageCanvasRef.current;
@@ -52,6 +59,8 @@ const AnnotationPanel = ({ video, currentFrame, isProcessing,setIsProcessing,
       img.onload = async () => {
         console.log("Image loaded");
         setCurrentImage(img);
+        setCurrentImageWidth(img.width);
+        setCurrentImageHeight(img.height);
         drawImage(img, canvas, ctx);
       };
       img.src = frame;
@@ -79,27 +88,34 @@ const AnnotationPanel = ({ video, currentFrame, isProcessing,setIsProcessing,
     // Draw the image
     ctx.drawImage(img, x, y, width, height);
   }
-  const drawCurrentAnnotation = () => {
-    if (ongoingAnnotation == null)
+  const drawAnnotation = (annotation) => {
+    if (annotation == null)
         return;
-    if (ongoingAnnotation.mask == null)
+    if (annotation.mask == null)
         return;
     const canvas = maskCanvasRef.current;
     const ctx = canvas.getContext('2d');
-    drawMask(canvas, ongoingAnnotation.mask,currentImage.height, currentImage.width);
+    drawMask(canvas, annotation.mask,annotation.color);
   }
-  const drawCurrentFrameAnnotations = () => {
-    const canvas = maskCanvasRef.current;
-    const ctx = canvas.getContext('2d');
-    const annotations = video.getAnnotationsForFrame(currentFrame);
-    for (const annotation of annotations) {
-      drawMask(canvas, annotation.getMask(), currentImage.height, currentImage.width);
-    }
-  }
+//   const drawCurrentFrameAnnotations = () => {
+//     const canvas = maskCanvasRef.current;
+//     const ctx = canvas.getContext('2d');
+//     const annotations = video.getAnnotationsForFrame(currentFrame);
+//     for (const annotation of annotations) {
+//       drawMask(canvas, annotation.getMask(), currentImage.height, currentImage.width);
+//     }
+//   }
   const drawSAMResults = () => {
     //TODO: draw server annotation results as masks
+    const bboxes=video.getSAMResultsByFrame(currentFrame);
+    console.log("When drawing SAM results, got Bboxes: " + bboxes);
+    const canvas = bboxCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    for (const bbox of bboxes) {
+      drawBBox(bbox.bbox, bbox.annotation.color, bbox.annotation);
+    }
   }
-  const drawMask = (maskCanvas, maskData) => {
+  const drawMask = (maskCanvas, maskData, color) => {
     console.log("Drawing mask", maskData);
     const maskCtx = maskCanvas.getContext('2d');
     if (!maskCtx) return;
@@ -115,10 +131,15 @@ const AnnotationPanel = ({ video, currentFrame, isProcessing,setIsProcessing,
 
         if (value > 0.0) {
             // Make mask pixels more visible with brighter red and higher opacity
-            maskImageData[pixelIndex] = 255;     // R
-            maskImageData[pixelIndex + 1] = 50;  // G - slight green tint for better visibility
-            maskImageData[pixelIndex + 2] = 50;  // B - slight blue tint for better visibility
-            maskImageData[pixelIndex + 3] = 180; // A - increased opacity
+            // Parse the color string (hex format like '#FF5733')
+            const r = parseInt(color.slice(1, 3), 16);
+            const g = parseInt(color.slice(3, 5), 16);
+            const b = parseInt(color.slice(5, 7), 16);
+            
+            maskImageData[pixelIndex] = r;       // R - from annotation color
+            maskImageData[pixelIndex + 1] = g;   // G - from annotation color
+            maskImageData[pixelIndex + 2] = b;   // B - from annotation color
+            maskImageData[pixelIndex + 3] = 180; // A - semi-transparent
         } else {
             // Keep pixels outside the mask fully transparent
             maskImageData[pixelIndex + 3] = 0;
@@ -137,11 +158,11 @@ const AnnotationPanel = ({ video, currentFrame, isProcessing,setIsProcessing,
 
     // Calculate scale to exactly match the image dimensions
     const scale = Math.min(
-        maskCanvas.width / currentImage.width,
-        maskCanvas.height / currentImage.height
+        maskCanvas.width / currentImageWidth,
+        maskCanvas.height / currentImageHeight
     );
-    const scaledWidth = currentImage.width * scale;
-    const scaledHeight = currentImage.height * scale;
+    const scaledWidth = currentImageWidth * scale;
+    const scaledHeight = currentImageHeight * scale;
     
     // Center the mask precisely
     const x = Math.floor((maskCanvas.width - scaledWidth) / 2);
@@ -155,6 +176,66 @@ const AnnotationPanel = ({ video, currentFrame, isProcessing,setIsProcessing,
     maskCtx.imageSmoothingQuality = 'high';
     maskCtx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight);
 };
+
+const drawBBox = (bbox, color, annotation) => {
+  // Convert normalized 0-1 coordinates to canvas coordinates
+  if (!bboxCanvasRef.current || !currentImage) return;
+  
+  const canvasWidth = bboxCanvasRef.current.width;
+  const canvasHeight = bboxCanvasRef.current.height;
+  //console.log("Canvas width: " + canvasWidth);
+  const ctx = bboxCanvasRef.current.getContext('2d');
+  if (!ctx) return;
+
+  // Calculate scale to fit image in canvas while maintaining aspect ratio
+  const scale = Math.min(
+    canvasWidth / currentImage.width,
+    canvasHeight / currentImage.height
+  );
+  //console.log("Scale: " + scale);
+  // Calculate scaled image dimensions
+  const scaledWidth = currentImage.width * scale;
+  const scaledHeight = currentImage.height * scale;
+
+  // Calculate offsets to center image in canvas
+  const offsetX = (canvasWidth - scaledWidth) / 2;
+  const offsetY = (canvasHeight - scaledHeight) / 2;
+  console.log("Offset: " + offsetX + " " + offsetY);
+  const x1 = (bbox[0] * scaledWidth) + offsetX;
+  const y1 = (bbox[1] * scaledHeight) + offsetY;
+  const x2 = (bbox[2] * scaledWidth) + offsetX;
+  const y2 = (bbox[3] * scaledHeight) + offsetY;
+  
+  ctx.beginPath();
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = color;
+  ctx.rect(x1, y1, x2 - x1, y2 - y1);
+  ctx.stroke();
+  // Add a semi-transparent fill to make it more visible
+  ctx.fillStyle = 'rgba(255, 0, 0, 0.2)';
+  ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+  
+  // Write the annotation ID in the middle of the bbox
+  if (annotation && annotation.getId()) {
+    const centerX = x1 + (x2 - x1) / 2;
+    const centerY = y1 + (y2 - y1) / 2;
+    
+    ctx.font = '14px Arial';
+    ctx.fillStyle = 'white';
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    // Draw text outline for better visibility
+    ctx.strokeText(annotation.getId(), centerX, centerY);
+    // Draw the text
+    ctx.fillText(annotation.getId(), centerX, centerY);
+  }
+  
+  console.log("Drawing bbox: " + x1 + " " + y1 + " " + x2 + " " + y2);
+}
+
 const drawCurrentPoints = () => {
   const canvas = pointsCanvasRef.current;
   const ctx = canvas.getContext('2d');
@@ -168,13 +249,13 @@ const drawPoint = (ctx, point) => {
 
   // Calculate scale to fit image in canvas while maintaining aspect ratio
   const scale = Math.min(
-    canvas.width / currentImage.width,
-    canvas.height / currentImage.height
+    canvas.width / currentImageWidth,
+    canvas.height / currentImageHeight
   );
 
   // Calculate scaled image dimensions
-  const scaledWidth = currentImage.width * scale;
-  const scaledHeight = currentImage.height * scale;
+  const scaledWidth = currentImageWidth * scale;
+  const scaledHeight = currentImageHeight * scale;
 
   // Calculate offsets to center image in canvas
   const offsetX = (canvas.width - scaledWidth) / 2;
@@ -182,8 +263,8 @@ const drawPoint = (ctx, point) => {
   console.log("Offset: " + offsetX + " " + offsetY);
 
   // Convert normalized 0-1 coordinates to actual canvas coordinates
-  const canvasX = offsetX + (point.x * currentImage.width * scale);
-  const canvasY = offsetY + (point.y * currentImage.height * scale);
+  const canvasX = offsetX + (point.x * currentImageWidth * scale);
+  const canvasY = offsetY + (point.y * currentImageHeight * scale);
 
   if (point.type == 1) {
     // Draw positive points
@@ -224,13 +305,13 @@ const clearCanvas = (canvas) => {
 const predict = async () => {
   const encoding = video.getEncoding(currentFrame);
   // Scale points according to decoder's requirements
-  const scaleFactor = predictor.getPointScaleFactor(currentImage.height, currentImage.width);
+  const scaleFactor = predictor.getPointScaleFactor(currentImageHeight, currentImageWidth);
   const scaledPoints = currentPoints.map(point => ({
     ...point,
     x: point.x * scaleFactor.x,
     y: point.y * scaleFactor.y
   }));
-  const mask = await predictor.predict(encoding, scaledPoints, currentImage.height, currentImage.width);
+  const mask = await predictor.predict(encoding, scaledPoints, currentImageHeight, currentImageWidth);
   console.log("Mask: " + mask);
   setCurrentMask(mask['masks']);
   return mask;
@@ -239,6 +320,7 @@ const predict = async () => {
     const canvas = imageCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
     const pointsCanvas = pointsCanvasRef.current;
+    const bboxCanvas = bboxCanvasRef.current;
     setCurrentPoints([]);
     if (!canvas) return;
     //if (!canvas.width || !canvas.height) {
@@ -246,6 +328,20 @@ const predict = async () => {
         if (!container) return;
         canvas.width = container.clientWidth;
         canvas.height = container.clientHeight;
+        
+        // Ensure all canvases have the same dimensions
+        if (maskCanvas) {
+          maskCanvas.width = container.clientWidth;
+          maskCanvas.height = container.clientHeight;
+        }
+        if (pointsCanvas) {
+          pointsCanvas.width = container.clientWidth;
+          pointsCanvas.height = container.clientHeight;
+        }
+        if (bboxCanvas) {
+          bboxCanvas.width = container.clientWidth;
+          bboxCanvas.height = container.clientHeight;
+        }
       //}
       const resizeCanvas = (canvas) => {
         const container = canvas.parentElement;
@@ -269,14 +365,16 @@ const predict = async () => {
       resizeCanvas(canvas);
       resizeCanvas(maskCanvas);
       resizeCanvas(pointsCanvas);
+      resizeCanvas(bboxCanvas);
   },[]);
 
   useEffect(() => {
     const canvas = imageCanvasRef.current;
     const maskCanvas = maskCanvasRef.current;
     const pointsCanvas = pointsCanvasRef.current;
+    const bboxCanvas = bboxCanvasRef.current;
     
-    if (!canvas || !maskCanvas || !pointsCanvas) return;
+    if (!canvas || !maskCanvas || !pointsCanvas || !bboxCanvas) return;
 
     // Function to resize canvas while maintaining content
     const resizeCanvas = (canvas) => {
@@ -304,11 +402,13 @@ const predict = async () => {
       resizeCanvas(canvas);
       resizeCanvas(maskCanvas);
       resizeCanvas(pointsCanvas);
+      resizeCanvas(bboxCanvas);
       
       // Redraw everything
       drawCurrentFrame();
-      drawCurrentAnnotation();
-      drawCurrentFrameAnnotations();
+      drawAnnotation(ongoingAnnotation);
+      //drawSAMResults();
+      //drawCurrentFrameAnnotations();
     };
 
     window.addEventListener('resize', handleResize);
@@ -317,6 +417,10 @@ const predict = async () => {
       window.removeEventListener('resize', handleResize);
     };
   }, []);
+
+  const clearPoints = () => {
+    setCurrentPoints([]);
+  }
 
   useEffect(() => {
     //This part is for drawing the current frame. When select a new frame, draw it and also draw existing annotations.
@@ -331,12 +435,13 @@ const predict = async () => {
     setOngoingAnnotation(null);
     // Schedule the draw operations for the next frame
     requestAnimationFrame(() => {
-      clearCanvas(imageCanvasRef.current);
+      //clearCanvas(imageCanvasRef.current);
       clearCanvas(maskCanvasRef.current);
       clearCanvas(pointsCanvasRef.current);
+      clearCanvas(bboxCanvasRef.current);
       drawCurrentFrame();
-      drawCurrentFrameAnnotations();
-      drawCurrentAnnotation();
+      //drawCurrentFrameAnnotations();
+      //drawCurrentAnnotation();
       drawSAMResults();
     });
   }, [currentFrame, video]);
@@ -401,6 +506,7 @@ const predict = async () => {
     //if (!canvasRef.current) return;
     if (currentPoints.length == 0) {
         clearCanvas(pointsCanvasRef.current);
+        clearCanvas(maskCanvasRef.current);
         return;
     }
     if (ongoingAnnotation == null) return;
@@ -432,9 +538,26 @@ const predict = async () => {
         ongoingAnnotation.setMask(currentMask);
         //drawCurrentFrame();
         clearCanvas(maskCanvasRef.current);
-        drawCurrentAnnotation();  
+        drawAnnotation(ongoingAnnotation);  
     }
   }, [currentMask]);
+
+//   useEffect(() => {
+//     if (viewingAnnotation != null && ongoingAnnotation == null) {
+//         console.log("Drawing viewing annotation");
+//         //clearCanvas(maskCanvasRef.current);
+//         requestAnimationFrame(() => {
+//           clearCanvas(pointsCanvasRef.current);
+//           clearCanvas(bboxCanvasRef.current);
+//           drawAnnotation(viewingAnnotation);
+//         });
+//     }
+//     else{
+//         // clearCanvas(maskCanvasRef.current);
+//         // clearCanvas(pointsCanvasRef.current);
+//         // clearCanvas(bboxCanvasRef.current);
+//     }
+//   }, [viewingAnnotation]);
   
 
 
@@ -455,13 +578,18 @@ const predict = async () => {
     if (ongoingAnnotation != null) {
       //We have an encoding for this frame, so we can predict the mask.
       // Transform canvas coordinates to image coordinates
+      if (ongoingAnnotation.isConfirmed()) {
+        console.log("Annotation is confirmed, so we will not add any more points.");
+        alert("This annotation is confirmed and cannot be modified.");
+        return;
+      }
       const scale = Math.min(
-        canvas.width / currentImage.width,
-        canvas.height / currentImage.height
+        canvas.width / currentImageWidth,
+        canvas.height / currentImageHeight
       );
       // Calculate scaled image dimensions
-        const scaledWidth = currentImage.width * scale;
-        const scaledHeight = currentImage.height * scale;
+        const scaledWidth = currentImageWidth * scale;
+        const scaledHeight = currentImageHeight * scale;
 
         // Calculate offsets to center image in canvas
         const offsetX = (canvas.width - scaledWidth) / 2;
@@ -470,7 +598,23 @@ const predict = async () => {
       const imageX = ((x - offsetX) ) / scaledWidth;
       const imageY = ((y - offsetY) ) / scaledHeight;
       const newPoint = {x: imageX, y: imageY, type: 1};
-      ongoingAnnotation.addPoint(newPoint);
+            // Check if the point is within the current mask's red area
+            let pointType = 1; // Default to positive point
+            if (currentMask && maskCanvasRef.current) {
+              const maskCtx = maskCanvasRef.current.getContext('2d');
+              // Get the pixel data at the clicked point's canvas coordinates
+              const canvasX = offsetX + (imageX * scaledWidth);
+              const canvasY = offsetY + (imageY * scaledHeight);
+              const pixelData = maskCtx.getImageData(canvasX, canvasY, 1, 1).data;
+              // Check if the pixel is red (mask area)
+              // Check if the pixel is part of the mask (any non-transparent color with significant alpha)
+              if (pixelData[3] > 100) {
+                // This is in the red mask area, so make it a negative point
+                pointType = 0;
+                newPoint.type = pointType;
+              }
+            }
+            ongoingAnnotation.addPoint(newPoint);
       setCurrentPoints([...currentPoints, newPoint]);
       console.log("scale " + scale);
       console.log("scaledWidth " + scaledWidth);
@@ -516,19 +660,24 @@ const predict = async () => {
       />
       <canvas
         ref={maskCanvasRef}
-        className="w-full h-full absolute top-0 left-0 z-10"
+        className="w-full h-full absolute top-0 left-0 z-20"
+        style={{ width: '100%', height: '100%' }}
+      />
+      <canvas
+        ref={bboxCanvasRef}
+        className="w-full h-full absolute top-0 left-0 z-30"
         style={{ width: '100%', height: '100%' }}
       />
       <canvas
         ref={pointsCanvasRef}
         onClick={handleCanvasClick}
         onMouseMove={handleCanvasMouseMove}
-        className="w-full h-full absolute top-0 left-0 z-20"
+        className="w-full h-full absolute top-0 left-0 z-40"
         style={{ width: '100%', height: '100%' }}
       />
       {isProcessing && (
         <canvas
-          className="w-full h-full absolute top-0 left-0 z-30"
+          className="w-full h-full absolute top-0 left-0 z-50"
           style={{ 
             width: '100%',
             height: '100%',
@@ -560,6 +709,6 @@ const predict = async () => {
       )}
     </div>
   );
-};
+});
 
 export default AnnotationPanel;

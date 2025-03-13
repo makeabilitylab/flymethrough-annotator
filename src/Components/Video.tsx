@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import Annotation from './Annotation';
+import Bbox from './Annotation.tsx';
 
 interface VideoData {
   name: string;
@@ -7,25 +8,20 @@ interface VideoData {
   image: string;
 }
 
-interface Segmentation {
-  frameIndex: number;
-  data: any; // Replace with specific segmentation data structure
-  timestamp: Date;
-}
 
 class Video {
   private videoData: VideoData;
   private frames: string[];
   private annotations: Annotation[];
   private currentFrameIndex: number;
-  private segmentations: Segmentation[];
+  private bboxes: Bbox[];
   private encodings: { [frameIndex: number]: Float32Array } = {};
 
   constructor(videoData: VideoData) {
     this.videoData = videoData;
     this.annotations = [];
     this.frames = this.videoData.frames;
-    this.segmentations = [];
+    this.bboxes = [];
     this.currentFrameIndex = 0;
   }
 
@@ -37,6 +33,14 @@ class Video {
 
   getImageCount(): number {
     return this.videoData.image_count;
+  }
+
+  getFrameIndex(filename: string): number {
+    return this.frames.indexOf(filename);
+  }
+
+  getFrameFilename(index: number): string {
+    return this.frames[index];
   }
 
   getThumbnail(): string {
@@ -86,12 +90,13 @@ class Video {
     this.annotations.push(annotation);
   }
 
-  getAnnotationsForFrame(frameIndex: number): Annotation[] {
-    return this.annotations.filter(a => a.frameIndex === frameIndex);
-  }
 
   getAllAnnotations(): Annotation[] {
     return [...this.annotations];
+  }
+
+  getAnnotationsByObjectID(objectId: string): Annotation[] {
+    return this.annotations.filter(a => a.getId() === objectId);
   }
 
   getAnnotationsForFrame(frameIndex: number): Annotation[] {
@@ -102,7 +107,14 @@ class Video {
     const annotation = this.annotations.find(a => a.getId() === objectId);
     if (annotation) {
       annotation.addBBox(frameIndex, bbox);
+      //console.log("Added bbox to annotation: ", annotation);
+      this.bboxes.push({frameIndex, annotation, bbox});
+      console.log("Added bbox to bboxes: ", this.bboxes);
     }
+  }
+
+  getSAMResultsByFrame(frameIndex: number): Bbox[] {
+    return this.bboxes.filter(b => b.frameIndex === frameIndex);
   }
 }
 

@@ -5,26 +5,38 @@ const AnnotationToolsPanel = (props) => {
   const [customTypes, setCustomTypes] = React.useState([]);
   const [newTypeName, setNewTypeName] = React.useState('');
   const defaultObjectTypes = [
-    { name: 'Door', id: 1 },
-    { name: 'Elevator', id: 2 }, 
-    { name: 'Stairs', id: 3 },
-    { name: 'Ramp', id: 4 },
-    { name: 'Entrance', id: 5 },
-    { name: 'Front Desk', id: 6 },
-    { name: 'Restroom', id: 7 }
+    { name: 'Entrance', id: 1, color: '#FF5733' },
+    { name: 'Elevator', id: 2, color: '#33FF57' },
+    { name: 'Stairs', id: 3, color: '#3357FF' },
+    { name: 'Restroom', id: 4, color: '#F033FF' },
+    { name: 'Door', id: 5, color: '#FF9933' },
+    { name: 'Ramp', id: 6, color: '#33FFF9' },
+    { name: 'Front Desk', id: 7, color: '#FFFF33' }
   ];
   const objectTypes = [...defaultObjectTypes, ...customTypes];
   const [typeCounts, setTypeCounts] = React.useState(
     defaultObjectTypes.reduce((acc, type) => ({...acc, [type.id]: 1}), {})
   );
+  const [description, setDescription] = React.useState('');
 
   const [totalAnnotations, setTotalAnnotations] = React.useState(0);
+
+  // Generate a random color for new custom types
+  const generateRandomColor = () => {
+    const letters = '0123456789ABCDEF';
+    let color = '#';
+    for (let i = 0; i < 6; i++) {
+      color += letters[Math.floor(Math.random() * 16)];
+    }
+    return color;
+  };
 
   const addCustomType = () => {
     if (newTypeName.trim()) {
       const newType = {
         name: newTypeName.trim(),
-        id: defaultObjectTypes.length + customTypes.length + 1
+        id: defaultObjectTypes.length + customTypes.length + 1,
+        color: generateRandomColor()
       };
       setCustomTypes([...customTypes, newType]);
       setTypeCounts({...typeCounts, [newType.id]: 1});
@@ -35,30 +47,33 @@ const AnnotationToolsPanel = (props) => {
   const createNewAnnotation = (type) => {
     if (props.ongoingAnnotation) {
         if (props.ongoingAnnotation.isValid()) {
-            console.log("Saving previous annotation");
-            props.video.addAnnotation(props.ongoingAnnotation);
+            console.log("Discarding this annotation");
+            //props.video.addAnnotation(props.ongoingAnnotation);
         }
         else {
             console.log("Invalid annotation, not saving");
         }
     }
     console.log("Creating new annotation");
-    const newAnnotation = new Annotation(props.currentFrame, type.name, totalAnnotations, typeCounts[type.id]);
+    const newAnnotation = new Annotation(props.currentFrame, type.name, totalAnnotations, typeCounts[type.id], type.color);
     setTotalAnnotations(totalAnnotations + 1);
     setTypeCounts({...typeCounts, [type.id]: typeCounts[type.id] + 1});
     props.setOngoingAnnotation(newAnnotation);
+    props.setViewingAnnotation(null);
   }
 
   const clearPoints = () => {
-    props.ongoingAnnotation.clearPoints();
+    props.clearPoints();
   }
 
   const removeAnnotation = () => {
     props.setOngoingAnnotation(null);
+    setDescription('');
   }
 
   const confirmAnnotation = () => {
-    props.confirmAnnotation();
+    props.confirmAnnotation(description);
+    setDescription('');
   }
 
   return (
@@ -82,6 +97,10 @@ const AnnotationToolsPanel = (props) => {
         >
           {objectTypes.map((type) => (
             <div key={type.id} className="flex items-center gap-1 text-sm mb-1">
+              <div 
+                className="w-4 h-4 rounded-full mr-1" 
+                style={{ backgroundColor: type.color }}
+              ></div>
               <span className="flex-1">{type.name}</span>
               <button className="btn btn-xs btn-primary" onClick={() => createNewAnnotation(type)}>Add</button>
             </div>
@@ -115,22 +134,27 @@ const AnnotationToolsPanel = (props) => {
               <span className="text-base text-black font-bold">
                 {props.ongoingAnnotation.annotationID}
               </span>
-              <div className="flex gap-2 items-center">
-                <span className="text-green-600 font-bold">
-                  +{props.ongoingAnnotation.getPositivePoints().length}
-                </span>
-                <span className="text-red-600 font-bold">
-                  -{props.ongoingAnnotation.getNegativePoints().length}
-                </span>
-              </div>
+              <input
+                type="text"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                className="input input-xs input-bordered mt-1 w-full"
+                placeholder="description of this object"
+              />
             </div>
-            <div className="flex gap-2 flex-col">
-              <div className="flex gap-2">
-                <button className="btn btn-sm btn-info flex-1 hover:bg-sky-600" onClick={clearPoints}>Clear Points</button>
-                <button className="btn btn-sm btn-warning flex-1 hover:bg-amber-600" onClick={removeAnnotation}>Remove Annotation</button>
+            {props.ongoingAnnotation.isConfirmed() ? (
+              <div className="h-full flex items-center justify-center text-gray-500 text-sm">
+                This annotation is confirmed and cannot be changed
               </div>
-              <button className="btn btn-sm btn-success hover:bg-green-600" onClick={confirmAnnotation}>Confirm Annotation</button>
-            </div>
+            ) : (
+              <div className="flex gap-2 flex-col">
+                <div className="flex gap-2">
+                  <button className="btn btn-sm btn-info flex-1 hover:bg-sky-600" onClick={clearPoints}>Clear Points</button>
+                  <button className="btn btn-sm btn-warning flex-1 hover:bg-amber-600" onClick={removeAnnotation}>Remove Annotation</button>
+                </div>
+                <button className="btn btn-sm btn-success hover:bg-green-600" onClick={confirmAnnotation}>Confirm Annotation</button>
+              </div>
+            )}
           </>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500 text-sm">
@@ -138,8 +162,46 @@ const AnnotationToolsPanel = (props) => {
           </div>
         )}
       </div>
+
+      {/* Final Actions Panel */}
+      <div className="bg-base-300 p-3 rounded-lg">
+        <h3 className="text-lg font-bold mb-2">Final Actions</h3>
+        <div className="flex gap-2 flex-col">
+          <button 
+            className="btn btn-sm btn-primary hover:bg-blue-600" 
+            onClick={props.reviewVideo}
+            title="Play video frames from this current frame. Press space to stop"
+          >
+            Review Video
+          </button>
+          <button 
+            className="btn btn-sm btn-accent hover:bg-purple-600" 
+            onClick={() => {
+              // Check if all annotations are processed
+              const allAnnotations = props.video.getAllAnnotations();
+              const unprocessedAnnotations = allAnnotations.filter(
+                annotation => !annotation.isProcessed()
+              );
+              
+              if (unprocessedAnnotations.length > 0) {
+                alert(`You have ${unprocessedAnnotations.length} unprocessed annotations. Please complete them before finishing.`);
+                // If there's an unprocessed annotation, navigate to its frame
+                if (unprocessedAnnotations[0]) {
+                  props.setCurrentFrame(unprocessedAnnotations[0].getInitialFrame());
+                  props.setOngoingAnnotation(unprocessedAnnotations[0]);
+                }
+              } else if (window.confirm('Are you sure you want to finish this annotation? This action cannot be undone.')) {
+                props.finishAnnotation();
+              }
+            }}
+            title="Finish this annotation"
+          >
+            Finish Annotation
+          </button>
+        </div>
+      </div>
     </div>
-  );
+  )
 };
 
 export default AnnotationToolsPanel;

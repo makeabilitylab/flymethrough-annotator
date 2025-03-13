@@ -6,6 +6,7 @@ interface Point {
 
   interface BBox {
     frameIndex: number;
+    annotation: Annotation;
     bbox: number[];
   }
 
@@ -19,8 +20,11 @@ class Annotation {
   private annotationID: string | null;
   private timestamp: Date;
   private processed: boolean;
+  private confirmed: boolean;
   private initialFrame: number;
-  constructor(initialFrame: number, annotationType: string, overallIndex: number, typeIndex: number) {
+  private color: string;
+  private processTime: number;
+  constructor(initialFrame: number, annotationType: string, overallIndex: number, typeIndex: number, color: string) {
     this.points = [];
     this.mask = null;
     this.bboxes = [];
@@ -31,6 +35,9 @@ class Annotation {
     this.timestamp = new Date();
     this.processed = false;
     this.initialFrame = initialFrame;
+    this.color = color;
+    this.processTime = 0;
+    this.confirmed = false;
   }
 
   getInitialFrame(): number {
@@ -81,7 +88,7 @@ class Annotation {
   }
 
   addBBox(frameIndex: number, bbox: number[]): void {
-    this.bboxes.push({frameIndex, bbox});
+    this.bboxes.push({frameIndex, annotation: this, bbox});
   }
 
   getBBoxes(): BBox[] {
@@ -94,6 +101,22 @@ class Annotation {
 
   isProcessed(): boolean {
     return this.processed;
+  }
+
+  setProcessTime(processTime: number): void {
+    this.processTime = processTime;
+  }
+
+  getProcessTime(): number {
+    return this.processTime;
+  }
+
+  setConfirmed(confirmed: boolean): void {
+    this.confirmed = confirmed;
+  }
+
+  isConfirmed(): boolean {
+    return this.confirmed;
   }
 }
 
