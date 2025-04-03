@@ -131,7 +131,7 @@ const AnnotationToolsPanel = (props) => {
         {props.ongoingAnnotation ? (
           <>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-base text-black font-bold">
+              <span className="text-sm text-black font-bold leading-tight">
                 {props.ongoingAnnotation.annotationID}
               </span>
               <input
@@ -187,8 +187,8 @@ const AnnotationToolsPanel = (props) => {
                 alert(`You have ${unprocessedAnnotations.length} unprocessed annotations. Please complete them before finishing.`);
                 // If there's an unprocessed annotation, navigate to its frame
                 if (unprocessedAnnotations[0]) {
-                  props.setCurrentFrame(unprocessedAnnotations[0].getInitialFrame());
-                  props.setOngoingAnnotation(unprocessedAnnotations[0]);
+                  //props.setCurrentFrame(unprocessedAnnotations[0].getInitialFrame());
+                  //props.setOngoingAnnotation(unprocessedAnnotations[0]);
                 }
               } else if (window.confirm('Are you sure you want to finish this annotation? This action cannot be undone.')) {
                 props.finishAnnotation();
