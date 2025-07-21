@@ -5,21 +5,37 @@ import Video from './Components/Video.tsx';
 import axios from 'axios';
 import { useState, useEffect } from 'react';
 
+/**
+ * FlyMeThrough - Professional Video Annotation Tool
+ * A React application for annotating videos using SAM2 (Segment Anything Model 2)
+ * for research and development purposes.
+ */
+
+/**
+ * Main routing component that handles navigation between pages
+ * and manages video state across the application
+ */
 const AppRoutes = () => {
   const navigate = useNavigate();
   const [videos, setVideos] = useState<Video[]>([]);
   const [selectedVideo, setSelectedVideo] = useState(null);
 
+  /**
+   * Handles video selection and navigation to annotation page
+   */
   const selectVideo = (video: Video) => {
     setSelectedVideo(video);
     navigate(`/annotate/${video.getName()}`);
-  }
+  };
 
+  /**
+   * Fetches available videos from the backend on component mount
+   */
   useEffect(() => {
     const fetchVideos = async () => {
       try {
         const response = await axios.get('http://localhost/videos');
-        console.log(response.data);
+        console.log('Fetched videos:', response.data);
         const videoInstances = response.data.map(videoData => new Video(videoData));
         setVideos(videoInstances);
       } catch (error) {
@@ -38,6 +54,9 @@ const AppRoutes = () => {
   );
 };
 
+/**
+ * Root application component
+ */
 const App = () => {
   return (
     <Router>

@@ -1,50 +1,77 @@
 import React from 'react';
+// Removed unused useParams import
+import { useRef, useState, useEffect } from 'react';
 
-import { useParams } from 'react-router-dom';
+// Component imports
 import AnnotationPanel from '../Components/AnnotationInterface/AnnotationPanel.tsx';
 import FramesPanel from '../Components/AnnotationInterface/FramesPanel.tsx';
 import AnnotationResultsPanel from '../Components/AnnotationInterface/AnnotationResultsPanel.tsx';
 import AnnotationToolsPanel from '../Components/AnnotationInterface/AnnotationToolsPanel.tsx';
+
+// Core classes
 import Video from '../Components/Video.tsx';
 import Annotation from '../Components/Annotation.tsx';
-import { useRef, useState, useEffect } from 'react';
+
+// SAM2 model integration
 import SAM2Encoder from '../Components/SAM/encoder.tsx';
 import SAM2Predictor from '../Components/SAM/decoder.tsx';
 
+/**
+ * Main annotation page component that orchestrates the video annotation workflow
+ * Integrates SAM2 models, manages annotation state, and handles user interactions
+ */
+
 const AnnotationPage = (props) => {
   const { video } = props as { video: Video };
+  
+  // Annotation state management
   const [selectedOnEditType, setSelectedOnEditType] = useState(null);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [currentFrame, setCurrentFrame] = useState<number | null>(null);
   const [ongoingAnnotation, setOngoingAnnotation] = useState<Annotation | null>(null);
   const [viewingAnnotation, setViewingAnnotation] = useState<Annotation | null>(null);
   const [isPositive, setIsPositive] = useState(true);
+  
+  // SAM2 model state
   const [encoder, setEncoder] = useState<SAM2Encoder | null>(null);
   const [predictor, setPredictor] = useState<SAM2Predictor | null>(null);
   const [embedding, setEmbedding] = useState<Float32Array | null>(null);
+  
+  // UI state
   const [isProcessing, setIsProcessing] = useState(false);
   const [isInitialized, setIsInitialized] = useState(false);
-  const annotationPanelRef = useRef<AnnotationPanel>(null);
   const [isReviewing, setIsReviewing] = useState(false);
-  const reviewIntervalRef = useRef(null);
   const [isFinished, setIsFinished] = useState(false);
+  
+  // Refs
+  const annotationPanelRef = useRef<AnnotationPanel>(null);
+  const reviewIntervalRef = useRef(null);
 
+  /**
+   * Initialize SAM2 models on component mount
+   */
   useEffect(() => {
-    const init = async () => {
-      console.log("Initializing encoder and predictor");
-      const encoder_init = new SAM2Encoder();
-      const predictor_init = new SAM2Predictor();
-      await encoder_init.initialize();
-      await predictor_init.initialize();
-      setIsInitialized(true);
-      console.log("Models initialized");
-      console.log("Encoder: ", encoder_init);
-      console.log("Predictor: ", predictor_init);
-      setEncoder(encoder_init);
-      setPredictor(predictor_init);
+    const initializeModels = async () => {
+      console.log('Initializing SAM2 encoder and predictor models...');
+      try {
+        const encoderInstance = new SAM2Encoder();
+        const predictorInstance = new SAM2Predictor();
+        
+        await encoderInstance.initialize();
+        await predictorInstance.initialize();
+        
+        setEncoder(encoderInstance);
+        setPredictor(predictorInstance);
+        setIsInitialized(true);
+        
+        console.log('SAM2 models initialized successfully');
+      } catch (error) {
+        console.error('Failed to initialize SAM2 models:', error);
+      }
     };
-    init();
-  },[]);
+    
+    initializeModels();
+  }, []);
 
   // Handle space key to toggle review playback and arrow keys for frame navigation
   useEffect(() => {
